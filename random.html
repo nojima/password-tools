@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Random Password Generator</title>
+    <script type="text/javascript" src="/js/mt.js"></script>
+    <script type="text/javascript" src="/js/jssha256.js"></script>
+    <script type="text/javascript">
+      function init() {
+        REQUIRED_CLICKS = 8;
+        INPUTS_PER_CLICK = 3;
+        inputs = [];
+        prevCharacters = '';
+        prevLength = '';
+        prevCount = '';
+        document.getElementById('rest').innerHTML = REQUIRED_CLICKS;
+      }
+
+      function onCellClicked(x, y, event) {
+        addInput(x, y, event);
+        if (inputs.length == REQUIRED_CLICKS * INPUTS_PER_CLICK) {
+          transitToStep2();
+        } else {
+          document.getElementById('rest').innerHTML =
+            REQUIRED_CLICKS - inputs.length / INPUTS_PER_CLICK;
+        }
+      }
+
+      function addInput(x, y, envet) {
+        if (!event) { event = window.event; }
+        if (event.pageX && event.pageY) {
+          inputs.push(event.pageX);
+          inputs.push(event.pageY);
+        } else if (event.clientX && event.clientY) {
+          inputs.push(event.clientX);
+          inputs.push(event.clientY);
+        } else {
+          inputs.push(x);
+          inputs.push(y);
+        }
+        inputs.push((new Date).getTime());
+      }
+
+      function transitToStep2() {
+        var seed = generateSeed();
+        initializeRandomNumberGenerator(seed);
+        document.getElementById('rawInput').innerHTML = inputs.join(', ');
+        document.getElementById('generatedSeed').innerHTML = array_to_hex_string(seed);
+        document.getElementById('divSeedGenerator').style.display = 'none';
+        document.getElementById('divGeneratedSeed').style.display = 'block';
+        document.getElementById('divParameters').style.display = 'block';
+        document.getElementById('divPasswordList').style.display = 'block';
+        setTimeout('updatePasswords()', 100);
+      }
+
+      function generateSeed() {
+        SHA256_init();
+        SHA256_write(inputs.join());
+        return SHA256_finalize();
+      }
+
+      function initializeRandomNumberGenerator(seed) {
+        random = new MersenneTwister(seed);
+        for (var i = 0; i < 12345; ++i) {
+          random.nextInt();
+        }
+      }
+
+      function updatePasswords() {
+        var characters = document.getElementById('characters').value;
+        var strLength = document.getElementById('length').value;
+        var strCount = document.getElementById('count').value;
+        if (characters != prevCharacters || strLength != prevLength || strCount != prevCount) {
+          var nLength = parseInt(strLength);
+          var nCount = parseInt(strCount);
+          if (!isNaN(nLength) && !isNaN(nCount) && characters) {
+            doUpdatePasswords(Math.min(nLength, 623), Math.min(nCount, 1000), characters);
+          }
+          prevCharacters = characters;
+          prevLength = strLength;
+          prevCount = strCount;
+        }
+        setTimeout('updatePasswords()', 100);
+      }
+
+      function doUpdatePasswords(length, count, characters) {
+        var passwordList = document.getElementById('passwords');
+        passwordList.innerHTML = '';
+        for (var i = 0; i < count; ++i) {
+          var password = generatePassword(length, characters);
+          var item = document.createElement('li');
+          item.innerHTML = escapeHTMLSpecialCharacters(password);
+          passwordList.appendChild(item);
+        }
+      }
+
+      function generatePassword(length, characters) {
+        var result = [];
+        for (var i = 0; i < length; ++i) {
+          result.push(characters[random.nextInt(characters.length)]);
+        }
+        return result.join('');
+      }
+
+      function escapeHTMLSpecialCharacters(text) {
+        return text.replace(/&/g, '&amp;').
+                    replace(/</g, '&lt;').
+                    replace(/>/g, '&gt;').
+                    replace(/ /g, '&nbsp;');
+      }
+    </script>
+    <style type="text/css">
+      #divGeneratedSeed, #divParameters, #divPasswordList {
+        display: none;
+      }
+      input {
+        font-family: monospace;
+      }
+      #passwords {
+        font-family: monospace;
+        line-height: 150%;
+      }
+      label {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body onload="init()">
+    <h1>Random Password Generator</h1>
+    <div id="divSeedGenerator">
+      <h2>Step 1: Initialize Random Number Generator</h2>
+      <p>Click <strong id="rest">0</strong> buttons to initialize a random number generator.</p>
+      <table summary="matrix">
+        <script type="text/javascript">
+          for (var i = 0; i < 8; ++i) {
+            document.write("<tr>");
+            for (var j = 0; j < 8; ++j) {
+              document.write("<td>");
+              document.write("<input type='button' value=' ' " +
+                  "style='width: 50px; height: 50px' " +
+                  "onclick='onCellClicked(" + j + ", " + i + ", event)' />");
+              document.write("</td>");
+            }
+            document.write("</tr>");
+          }
+        </script>
+      </table>
+    </div>
+    <div id="divGeneratedSeed">
+      <h2>Step 1: Initialize Random Number Generator</h2>
+      <p>Done!</p>
+      <p>
+        <strong>Raw input:</strong><br />
+        <span id="rawInput"></span>
+      </p>
+      <p>
+        <strong>Generated seed for Mersenne Twister:</strong><br />
+        <span id="generatedSeed"></span>
+      </p>
+    </div>
+    <div id="divParameters">
+      <h2>Step 2: Set Parameters</h2>
+      <p>
+        <label for="characters">Characters used in passwords:</label><br />
+        <input id="characters" type="input" size="80"
+            value="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" />
+      </p>
+      <p>
+        <label for="length">Password length:</label><br />
+        <input id="length" type="input" value="10" size="5" />
+      </p>
+      <p>
+        <label for="count">The number of the passwords to generate:</label><br />
+        <input id="count" type="input" value="20" size="5" />
+      </p>
+    </div>
+    <div id="divPasswordList">
+      <h2>Generated Passwords</h2>
+      <ul id="passwords">
+      </ul>
+    </div>
+  </body>
+</html>
